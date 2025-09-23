@@ -4,11 +4,13 @@
  SLCadaster
                                  A QGIS plugin
  To Check the Cadaster Plan in Sri Lanka 
-                          line_Dxf = self.dlg.lineEdit.text()
-            # Use cross-platform path for the database file
-            plugin_dir = os.path.dirname(__file__)
-            db = os.path.join(plugin_dir, 'qgis.dbf')
-            outputs_QGISEXPLODELINES_1=processing.runalg('qgis:explodelines', line_Dxf,None)             -------------------
+                                               cLayer = self.iface.mapCanvas().currentLayer()                            
+            expr = QgsExpression( "SubClasses='AcDbEntity:AcDbMInsertBlock'" or "SubClasses='AcDbEntity:AcDbBlockReference'" )
+            it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
+            ids = [i.id() for i in it]
+            cLayer.setSelectedFeatures( ids )
+            block_count=len(ids)
+            QgsProject.instance().removeMapLayer( cLayer)    -------------------
         begin                : 2019-09-26
         git sha              : $Format:%H$
         copyright            : (C) 2019 by Prabhath W.J.K.A.N. Survey Dept. of Sri Lanka
@@ -32,11 +34,13 @@ import resources
 # Import the code for the dialog
 from SL_Cadaster_dialog import SLCadasterDialog
 import os.path
-from qgis.core import QgsProject, QgsVectorLayer, QgsExpression, QgsFeatureRequest
+from qgis.core import *
 from qgis.utils import *
+from qgis.core import QgsProject, QgsVectorLayer, QgsExpression, QgsFeatureRequest
 from qgis.gui import *
 from PyQt5.QtCore import *
 from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QMessageBox
 import os, sys, datetime
 import qgis
 import processing
@@ -80,7 +84,7 @@ class SLCadaster:
         self.toolbar.setObjectName(u'SLCadaster')
         self.dlg.lineEdit.clear()
         self.dlg.pushButton.clicked.connect(self.select_input_file)
-        
+		
         self.dlg.lineEdit_2.clear()
         self.dlg.pushButton_2.clicked.connect(self.select_TL)
 
@@ -197,14 +201,12 @@ class SLCadaster:
             self.iface.removeToolBarIcon(action)
         # remove the toolbar
         del self.toolbar
-        
     def select_input_file(self):
         filename = QFileDialog.getOpenFileName(self.dlg, "Select input file","",'*.dxf')
-        self.dlg.lineEdit.setText(filename[0])  # Updated for PyQt5
-        
+        self.dlg.lineEdit.setText(filename)
     def select_TL(self):
         filename2 = QFileDialog.getOpenFileName(self.dlg, "Select TL","",'*.xlsx')      
-        self.dlg.lineEdit_2.setText(filename2[0])  # Updated for PyQt5
+        self.dlg.lineEdit_2.setText(filename2)
 
 
     def run(self):
@@ -223,17 +225,17 @@ class SLCadaster:
             QgsProject.instance().removeMapLayer( cLayer)
             cLayer = self.iface.mapCanvas().currentLayer()
             line_Dxf = self.dlg.lineEdit.text()
-            db=os.path.expanduser('~/.qgis3/python/plugins/SLCadaster/qgis.dbf')
+            db=os.path.expanduser('~\\.qgis2\\python\\plugins\\SLCadaster\\qgis.dbf')
             outputs_QGISEXPLODELINES_1=processing.runalg('qgis:explodelines', line_Dxf,None)
             layer = QgsVectorLayer(outputs_QGISEXPLODELINES_1['OUTPUT'],'CM_Lot', 'ogr')
             QgsProject.instance().addMapLayer(layer)                        
-            cLayer = self.iface.mapCanvas().currentLayer()                            
+            cLayer = iface.mapCanvas().currentLayer()                            
             expr = QgsExpression( "SubClasses='AcDbEntity:AcDbMInsertBlock'" or "SubClasses='AcDbEntity:AcDbBlockReference'" )
             it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
             ids = [i.id() for i in it]
             cLayer.setSelectedFeatures( ids )
             block_count=len(ids)
-            QgsProject.instance().removeMapLayer( cLayer)
+            QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
             window = self.iface.mainWindow()
             if block_count>0:
                 QMessageBox.information(window,"Info", "Warning...!!!\n \nRemove blocks before run\n\n - - - - - - - - - - - Hint - - - - - - - - - \nExplode the DXF and match that layer again\nThen re do the process")
@@ -246,7 +248,7 @@ class SLCadaster:
                 outputs_QGISJOINATTRIBUTESTABLE_1=processing.runandload('qgis:joinattributestable', outputs_QGISDEFINECURRENTPROJECTION_1['OUTPUT'],db,'layer','layer',None)
           
                 #---- ---------------iface activity--------------------------------------
-                cLayer = self.iface.mapCanvas().currentLayer()
+                cLayer = iface.mapCanvas().currentLayer()
                 expr = QgsExpression("ex=0")
                 it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
                 ids = [i.id() for i in it]
@@ -258,7 +260,7 @@ class SLCadaster:
 
                 #---- ---------------iface activity 02--------------------------------------
 
-                cLayer = self.iface.mapCanvas().currentLayer()
+                cLayer = iface.mapCanvas().currentLayer()
                 expr = QgsExpression( " \"layer_2\" is NULL" )
                 it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
                 ids = [i.id() for i in it]
@@ -268,13 +270,13 @@ class SLCadaster:
                     cLayer.deleteFeature(fid)
                 cLayer.commitChanges()
                 #------------------
-                cLayer = self.iface.mapCanvas().currentLayer()
+                cLayer = iface.mapCanvas().currentLayer()
                 layer = self.iface.activeLayer()
-                myfilepath= self.iface.activeLayer().dataProvider().dataSourceUri()
-                QgsProject.instance().removeMapLayer( cLayer)
+                myfilepath= iface.activeLayer().dataProvider().dataSourceUri()
+                QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
                 layer = QgsVectorLayer(myfilepath,os.path.basename(line_Dxf[:-4]), 'ogr')
-                QgsProject.instance().addMapLayer(layer)
-                cLayer = self.iface.mapCanvas().currentLayer()           
+                QgsMapLayerRegistry.instance().addMapLayer(layer)
+                cLayer = iface.mapCanvas().currentLayer()           
                 outputs_QGISPOLYGONIZE_1=processing.runalg('qgis:polygonize', cLayer,False,True,None)
                 vlayer = QgsVectorLayer(outputs_QGISPOLYGONIZE_1['OUTPUT'], "Ports layer", "ogr")
                 POLYGONIZE=vlayer.featureCount() 
@@ -283,7 +285,7 @@ class SLCadaster:
                 else:                  
                     outputs_QGISPOINTONSURFACE_1=processing.runandload('qgis:pointonsurface', line_Dxf,None)
                     #outputs_GRASS7V_CLEAN_1=processing.runalg('grass7:v.clean', line_Dxf,0,0.1,None,-1.0,0.0001,None,None)
-                    cLayer = self.iface.mapCanvas().currentLayer()
+                    cLayer = iface.mapCanvas().currentLayer()
                     expr = QgsExpression( " \"Layer\" is 'LOTNO'" )
                     it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
                     ids = [i.id() for i in it]
@@ -304,23 +306,23 @@ class SLCadaster:
                         outputs_QGISJOINATTRIBUTESBYLOCATION_1=processing.runandload('qgis:joinattributesbylocation', outputs_QGISPOLYGONIZE_1['OUTPUT'],cLayer,['contains'],0.0,0,'sum,mean,min,max,median',1,None)
                         b= r""+line_Dxf[:-4]+"Report01.txt"           
                         file = open(b, 'w')
-                        cLayer = self.iface.mapCanvas().currentLayer()
+                        cLayer = iface.mapCanvas().currentLayer()
                         
                         #------------------------------------------------------------------------
-                        cLayer = self.iface.mapCanvas().currentLayer()
+                        cLayer = iface.mapCanvas().currentLayer()
                         layer = self.iface.activeLayer()
-                        myfilepath= self.iface.activeLayer().dataProvider().dataSourceUri()                
+                        myfilepath= iface.activeLayer().dataProvider().dataSourceUri()                
 
                         outputs_QGISDISSOLVE_2=processing.runandload('qgis:dissolve', cLayer,False,'Text',None)
                         layer = self.iface.activeLayer()
-                        myfilepath2= self.iface.activeLayer().dataProvider().dataSourceUri()                
-                        QgsProject.instance().removeMapLayer(cLayer)
+                        myfilepath2= iface.activeLayer().dataProvider().dataSourceUri()                
+                        QgsMapLayerRegistry.instance().removeMapLayer(cLayer)
 
                         outputs_QGISDISSOLVE_3=processing.runandload('qgis:dissolve', myfilepath,False,'Text',None)
 
                         #---- ---------------iface activity 03--------------------------------------
 
-                        cLayer = self.iface.mapCanvas().currentLayer()
+                        cLayer = iface.mapCanvas().currentLayer()
                         expr = QgsExpression( " \"Layer\" is NULL" )
                         it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
                         ids = [i.id() for i in it]
@@ -335,18 +337,18 @@ class SLCadaster:
                         file.write('\nNo of Lots              ')
                         file.write(str(feats_count))
                         #-----------------------------------------------------------------------------------------
-                        cLayer = self.iface.mapCanvas().currentLayer()
+                        cLayer = iface.mapCanvas().currentLayer()
                         layer = self.iface.activeLayer()
-                        QgsProject.instance().removeMapLayer(cLayer)
-                        cLayer = self.iface.mapCanvas().currentLayer()
-                        QgsProject.instance().removeMapLayer( cLayer)
-                        cLayer = self.iface.mapCanvas().currentLayer()
-                        QgsProject.instance().removeMapLayer( cLayer)
+                        QgsMapLayerRegistry.instance().removeMapLayer(cLayer)
+                        cLayer = iface.mapCanvas().currentLayer()
+                        QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
+                        cLayer = iface.mapCanvas().currentLayer()
+                        QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
                         layer = QgsVectorLayer(myfilepath,os.path.basename(line_Dxf[:-4]), 'ogr')
-                        QgsProject.instance().addMapLayer(layer)
+                        QgsMapLayerRegistry.instance().addMapLayer(layer)
 
                         #---- ---------------iface activity 05--------------------------------------
-                        cLayer = self.iface.mapCanvas().currentLayer()
+                        cLayer = iface.mapCanvas().currentLayer()
                         expr = QgsExpression(" \"area\" is 0")
                         it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
                         ids = [i.id() for i in it]
@@ -377,14 +379,14 @@ class SLCadaster:
                         file.write ('\n------------------------- R&D @ SGO ------------------------')
 
                         file.close()
-                        layer = self.iface.activeLayer()
+                        layer = iface.activeLayer()
                         layer.setCustomProperty("labeling", "pal")
                         layer.setCustomProperty("labeling/enabled", "true")
                         layer.setCustomProperty("labeling/fontFamily", "Arial")
                         layer.setCustomProperty("labeling/fontSize", "10")
                         layer.setCustomProperty("labeling/fieldName", "Text")
                         layer.setCustomProperty("labeling/placement", "4")
-                        self.iface.mapCanvas().refresh()
+                        iface.mapCanvas().refresh()
                        
                         #-------------------------------------------------Step 2 ---------------------------------------------------------
                         
@@ -412,13 +414,13 @@ class SLCadaster:
                                     outputs_QGISADDFIELDTOATTRIBUTESTABLE_1=processing.runalg('qgis:addfieldtoattributestable', outputs_QGISJOINATTRIBUTESTABLE_1['OUTPUT_LAYER'],'ex',0,10.0,0.0,None)
                                     outputs_QGISFIELDCALCULATOR_1=processing.runandload('qgis:fieldcalculator', outputs_QGISADDFIELDTOATTRIBUTESTABLE_1['OUTPUT_LAYER'],'ex',1,10.0,0.0,True,'abs("Extent"  *10000-"farea")',None)
 
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     layer = self.iface.activeLayer()
-                                    myfilepath= self.iface.activeLayer().dataProvider().dataSourceUri()
-                                    QgsProject.instance().removeMapLayer( cLayer)
+                                    myfilepath= iface.activeLayer().dataProvider().dataSourceUri()
+                                    QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
                                     layer = QgsVectorLayer(myfilepath,"ExError", 'ogr')
-                                    QgsProject.instance().addMapLayer(layer)                   
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    QgsMapLayerRegistry.instance().addMapLayer(layer)                   
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     b= r""+TL[:-5]+"Report02.txt"                    
                                     expr = QgsExpression("ex>-2 AND ex<2 ")
                                     it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
@@ -441,7 +443,7 @@ class SLCadaster:
                                         file.write ("\nDate : "+ a1+"\n")
                                         file.write ('\n------------------------- R&D @ SGO ------------------------')
                                         file.close()
-                                        window = self.iface.mainWindow()
+                                        window = iface.mainWindow()
                                         QMessageBox.information(window,"Info", "Cheers..! \n \nYour have make a perfect plan...!!!\n \n(See "+os.path.basename(line_Dxf[:-4])+"Report02.txt file in your DXF folder)")
                                    
                                     else:                        
@@ -449,37 +451,37 @@ class SLCadaster:
                                         file.write('----------Report of Extent Matching result--------"\n')
                                         file.write('\nLot No  Ex.Error(sq.m) \n') 
                                         feats = []
-                                        cLayer = self.iface.mapCanvas().currentLayer()
+                                        cLayer = iface.mapCanvas().currentLayer()
                                         for feat in cLayer.getFeatures():
                                             msgout = '%s,%s,%s\n' % (feat["Text"],"    ", feat["ex"])
                                             unicode_message = msgout.encode('utf-8')
                                             feats.append(unicode_message)     
                                         feats.sort()
                                         for item in feats:
-                                            file.write(item.decode('utf-8'))  # Updated for Python 3
+                                            file.write(item)
                                         now = datetime.datetime.now()
                                         date= str (now)
                                         a1= str (now.strftime("%Y-%m-%d"))
                                         file.write ("\nDate : "+ a1+"\n")
                                         file.write ('\n------------------------- R&D @ SGO ------------------------')
                                         file.close()
-                                        window = self.iface.mainWindow()
+                                        window = iface.mainWindow()
                                         QMessageBox.information(window,"Info", "Process complete....!\n \nNumber of "+str(count)+" extent differences found \n \nRe-checke the extent in your TL\n \n(See "+os.path.basename(line_Dxf[:-4])+"Report02.txt file in your DXF folder)\n \n             ~~~  R&D - SGO ~~~")
                                 else:
                                     diff=str(countTL-feats_count)
                                     QMessageBox.information(window,"Info", "Warning ....!\n \nNumber of "+diff+" polygons missing in the plan\n\n - - - - - - - - - - - Hint - - - - - - - - - \nYou may have use some boundry lines in wrong layer or dange error(check topology)  \n \nBut extent difference lots with TL will help you to find that places\n \n(See "+os.path.basename(line_Dxf[:-4])+"Report02.txt file in your DXF folder)")
                                     cLayer = self.iface.mapCanvas().currentLayer()
                                     cLayer.removeSelection()
-                                    result=r"C:\Users\Survey Department\Desktop\nildandahinna\result.shp"
+				    result=r"C:\Users\Survey Department\Desktop\nildandahinna\result.shp"
                                     outputs_QGISDISSOLVE_1=processing.runalg('qgis:dissolve', cLayer,False,'Text',None)
                                     outputs_QGISDEFINECURRENTPROJECTION_1=processing.runalg('qgis:definecurrentprojection', outputs_QGISDISSOLVE_1['OUTPUT'],'EPSG:5235')
 
                                     outputs_QGISPOINTSLAYERFROMTABLE_a=processing.runalg('qgis:pointslayerfromtable', TL,'a','b','EPSG:5235',None)
                                     outputs_QGISJOINATTRIBUTESTABLE_b=processing.runalg('qgis:joinattributestable', outputs_QGISPOINTSLAYERFROMTABLE_a['OUTPUT'],outputs_QGISDEFINECURRENTPROJECTION_1['OUTPUT'],'LotNo','Text',None)
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     layer = QgsVectorLayer(outputs_QGISJOINATTRIBUTESTABLE_b['OUTPUT_LAYER'],"ExError", 'ogr')
-                                    QgsProject.instance().addMapLayer(layer)
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    QgsMapLayerRegistry.instance().addMapLayer(layer)
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     expr = QgsExpression("Text is not Null")
                                     it = cLayer.getFeatures( QgsFeatureRequest( expr ) )
                                     ids = [i.id() for i in it]
@@ -493,19 +495,19 @@ class SLCadaster:
                                     file.write('----------Report of Missing lot numbers-------"\n')
                                     file.write('\nLot Numbers\n') 
                                     feats = []
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     for feat in cLayer.getFeatures():
                                         msgout = '%s\n' % (feat["LotNo"])
                                         unicode_message = msgout.encode('utf-8')
                                         feats.append(unicode_message)     
                                     feats.sort()
                                     for item in feats:
-                                        file.write(item.decode('utf-8'))  # Updated for Python 3
+                                        file.write(item)
                                     file.write ('\n------------------------- R&D @ SGO ------------------------')
                                     file.close()
 
-                                    QgsProject.instance().removeMapLayer( cLayer)
-                                    window = self.iface.mainWindow()
+                                    QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
+                                    window = iface.mainWindow()
                                     QMessageBox.information(window,"Info", "Info..! \n \nTo see missing lots numbers \n \n(See "+os.path.basename(line_Dxf[:-4])+"Missing lots.txt file in your DXF folder)")
 
                                     outputs_QGISFIELDCALCULATOR_1=processing.runalg('qgis:fieldcalculator',outputs_QGISDEFINECURRENTPROJECTION_1['OUTPUT'],'farea',0,10.0,3.0,True,'$area',None)
@@ -513,15 +515,15 @@ class SLCadaster:
                                     outputs_QGISADDFIELDTOATTRIBUTESTABLE_1=processing.runalg('qgis:addfieldtoattributestable', outputs_QGISJOINATTRIBUTESTABLE_1['OUTPUT_LAYER'],'ex',0,10.0,0.0,None)
                                     outputs_QGISFIELDCALCULATOR_1=processing.runandload('qgis:fieldcalculator', outputs_QGISADDFIELDTOATTRIBUTESTABLE_1['OUTPUT_LAYER'],'ex',1,10.0,0.0,True,'abs("Extent"  *10000-"farea")',None)
 
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     layer = self.iface.activeLayer()
-                                    myfilepath= self.iface.activeLayer().dataProvider().dataSourceUri()
-                                    QgsProject.instance().removeMapLayer( cLayer)
+                                    myfilepath= iface.activeLayer().dataProvider().dataSourceUri()
+                                    QgsMapLayerRegistry.instance().removeMapLayer( cLayer)
                                     layer = QgsVectorLayer(myfilepath,"ExError", 'ogr')
-                                    QgsProject.instance().addMapLayer(layer)
+                                    QgsMapLayerRegistry.instance().addMapLayer(layer)
                                     b= r""+TL[:-5]+"Report02.txt" 
                                     file = open(b, 'w')
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     file.write('----------Report of Extent Matching result--------"\n')
                                     file.write('\nLot No  Ex.Error(sq.m) \n')
                                     expr = QgsExpression("ex>-2 AND ex<2 ")
@@ -534,23 +536,24 @@ class SLCadaster:
                                     cLayer.commitChanges()
                                     count=cLayer.featureCount()
                                     feats = []
-                                    cLayer = self.iface.mapCanvas().currentLayer()
+                                    cLayer = iface.mapCanvas().currentLayer()
                                     for feat in cLayer.getFeatures():
                                         msgout = '%s,%s,%s\n' % (feat["Text"],"    ", feat["ex"])
                                         unicode_message = msgout.encode('utf-8')
                                         feats.append(unicode_message)     
                                     feats.sort()
                                     for item in feats:
-                                        file.write(item.decode('utf-8'))  # Updated for Python 3
+                                        file.write(item)
                                     now = datetime.datetime.now()
                                     date= str (now)
                                     a1= str (now.strftime("%Y-%m-%d"))
                                     file.write ("\nDate : "+ a1+"\n")
                                     file.write ('\n------------------------- R&D @ SGO ------------------------')
                                     file.close()
-                                    window = self.iface.mainWindow()
+                                    window = iface.mainWindow()
                                     QMessageBox.information(window,"Info", "Process complete....!\n \nNumber of "+str(count)+" extent differences found \n \nRe-checke the extent in your TL\n \n(See "+os.path.basename(line_Dxf[:-4])+"Report02.txt file in your DXF folder)\n \n             ~~~  R&D - SGO ~~~")
 
                             
                                                             
             pass
+ 

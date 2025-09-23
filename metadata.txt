@@ -8,9 +8,10 @@
 
 [general]
 name=SL Cadaster
-qgisMinimumVersion=2.18
+qgisMinimumVersion=3.0
+qgisMaximumVersion=3.99
 description=To Check the Cadaster Plan in Sri Lanka 
-version=0.1
+version=1.0
 author=Prabhath W.J.K.A.N. Survey Dept. of Sri Lanka
 email=npjasinghe@gmail.com
 
